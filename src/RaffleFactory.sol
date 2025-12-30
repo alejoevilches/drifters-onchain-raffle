@@ -6,7 +6,7 @@ import {VRFCoordinatorV2Interface} from "foundry-chainlink-toolkit/src/interface
 
 /**
  * @title Raffle Factory
- * @author ...
+ * @author Alejo Vilches
  * @notice This contracts creates a raffle for Drifters
  * @dev It implements Chainlink VRFv2.5
  */
@@ -18,8 +18,11 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     bytes32 i_keyHash;
     uint32 i_callbackGasLimit;
 
+    mapping(uint256 => uint256) requestIdToRaffle;
+
     error CreateRaffle_FinishBeforeStart();
     error DrawWinner_RaffleNotOpen();
+    error DrawWinner_NotEnoughParticipants();
 
     struct Raffle {
         address[] participants;
@@ -69,15 +72,32 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     }
 
     function drawWinner(uint256 raffleId) external {
-        if (raffleCollection[raffleId].status == Status.OPEN)
-            revert DrawWinner_RaffleNotOpen();
+        Raffle memory raffle = raffleCollection[raffleId];
+        if (raffle.status != Status.OPEN) revert DrawWinner_RaffleNotOpen();
+
+        if (raffle.participants.length <= 0)
+            revert DrawWinner_NotEnoughParticipants();
+
+        raffleCollection[raffleId].status = Status.DRAW;
 
         uint256 requestId = i_vrfCoordinator.requestRandomWords(
-            i_keyHash, // gas lane / keyHash
-            i_subscriptionId, // tu subscripción
-            3, // request confirmations
-            i_callbackGasLimit, // gas para el callback
-            1 // 👈 numWords = 1
+            i_keyHash,
+            i_subscriptionId,
+            3,
+            i_callbackGasLimit,
+            1
         );
+        requestIdToRaffle[requestId] = raffleId;
+    }
+
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) internal view override {
+        uint256 raffleId = requestIdToRaffle[requestId];
+        Raffle memory raffle = raffleCollection[raffleId];
+        uint256 winnerIndex = randomWords[0] % raffle.participants.length;
+        raffle.winner = raffle.participants[winnerIndex];
+        raffle.status = Status.CLOSED;
     }
 }
