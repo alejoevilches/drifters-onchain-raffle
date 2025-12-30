@@ -24,6 +24,7 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     error CreateRaffle_FinishBeforeStart();
     error DrawWinner_RaffleNotOpen();
     error DrawWinner_NotEnoughParticipants();
+    error GetRaffle_InvalidRaffleId();
     error AddParticipant_AlreadyIn();
     error AddParticipant_InvalidRaffleId();
     error DrawWinner_NotFinishedYet();
@@ -74,6 +75,8 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     }
 
     function getRaffle(uint256 raffleId) external view returns (Raffle memory) {
+        if (raffleId >= raffleCollection.length)
+            revert GetRaffle_InvalidRaffleId();
         return raffleCollection[raffleId];
     }
 
