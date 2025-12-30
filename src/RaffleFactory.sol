@@ -7,7 +7,7 @@ import {VRFCoordinatorV2Interface} from "foundry-chainlink-toolkit/src/interface
 /**
  * @title Raffle Factory
  * @author Alejo Vilches
- * @notice This contracts creates a raffle for Drifters
+ * @notice This contracts creates a raffle for Drifters, a local shoe store in Buenos Aires
  * @dev It implements Chainlink VRFv2.5
  */
 
@@ -19,10 +19,15 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     uint32 i_callbackGasLimit;
 
     mapping(uint256 => uint256) requestIdToRaffle;
+    mapping(uint256 => mapping(address => bool)) hasParticipated;
 
     error CreateRaffle_FinishBeforeStart();
     error DrawWinner_RaffleNotOpen();
     error DrawWinner_NotEnoughParticipants();
+    error AddParticipant_AlreadyIn();
+    error AddParticipant_InvalidRaffleId();
+    error DrawWinner_NotFinishedYet();
+    error DrawWinner_InvalidRaffleId();
 
     struct Raffle {
         address[] participants;
@@ -63,18 +68,26 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         );
     }
 
-    function getRaffleCollection() external view returns (Raffle[] memory) {
-        return raffleCollection;
+    function getRaffle(uint256 raffleId) external view returns (Raffle memory) {
+        return raffleCollection[raffleId];
     }
 
     function addParticipant(address participant, uint256 raffleId) external {
+        if (raffleId >= raffleCollection.length)
+            revert AddParticipant_InvalidRaffleId();
+        if (hasParticipated[raffleId][participant])
+            revert AddParticipant_AlreadyIn();
         raffleCollection[raffleId].participants.push(participant);
     }
 
+    //drawWinner ask for a random number to Chainlink. Is fulfillRandomWords who choses the winner
     function drawWinner(uint256 raffleId) external {
         Raffle memory raffle = raffleCollection[raffleId];
+        if (raffle.finishingTime < block.timestamp)
+            revert DrawWinner_NotFinishedYet();
         if (raffle.status != Status.OPEN) revert DrawWinner_RaffleNotOpen();
-
+        if (raffleId >= raffleCollection.length)
+            revert AddParticipant_InvalidRaffleId();
         if (raffle.participants.length <= 0)
             revert DrawWinner_NotEnoughParticipants();
 
@@ -93,11 +106,12 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     function fulfillRandomWords(
         uint256 requestId,
         uint256[] memory randomWords
-    ) internal view override {
+    ) internal override {
         uint256 raffleId = requestIdToRaffle[requestId];
-        Raffle memory raffle = raffleCollection[raffleId];
-        uint256 winnerIndex = randomWords[0] % raffle.participants.length;
-        raffle.winner = raffle.participants[winnerIndex];
-        raffle.status = Status.CLOSED;
+        uint256 winnerIndex = randomWords[0] %
+            raffleCollection[raffleId].participants.length;
+        raffleCollection[raffleId].winner = raffleCollection[raffleId]
+            .participants[winnerIndex];
+        raffleCollection[raffleId].status = Status.CLOSED;
     }
 }
