@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import {VRFConsumerBaseV2} from "chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
@@ -12,23 +12,32 @@ import {VRFCoordinatorV2Interface} from "foundry-chainlink-toolkit/src/interface
  */
 
 contract RaffleFactory is VRFConsumerBaseV2 {
+    uint16 constant CONFIRMATIONS = 3;
+    uint32 constant RANDOM_NUMBERS = 1;
     Raffle[] private raffleCollection;
-    VRFCoordinatorV2Interface i_vrfCoordinator;
-    uint64 i_subscriptionId;
-    bytes32 i_keyHash;
-    uint32 i_callbackGasLimit;
+    VRFCoordinatorV2Interface immutable i_vrfCoordinator;
+    uint64 immutable i_subscriptionId;
+    bytes32 immutable i_keyHash;
+    uint32 immutable i_callbackGasLimit;
+    address immutable i_admin;
 
     mapping(uint256 => uint256) requestIdToRaffle;
     mapping(uint256 => mapping(address => bool)) hasParticipated;
 
+    error NotAdmin();
     error CreateRaffle_FinishBeforeStart();
     error DrawWinner_RaffleNotOpen();
     error DrawWinner_NotEnoughParticipants();
     error GetRaffle_InvalidRaffleId();
     error AddParticipant_AlreadyIn();
     error AddParticipant_InvalidRaffleId();
-    error DrawWinner_NotFinishedYet();
     error DrawWinner_InvalidRaffleId();
+    error DrawWinner_NotFinishedYet();
+
+    modifier OnlyAdmin() {
+        if (msg.sender != i_admin) revert NotAdmin();
+        _;
+    }
 
     struct Raffle {
         address[] participants;
@@ -52,15 +61,17 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         address vrfCoordinator,
         uint64 subscriptionId,
         bytes32 keyHash,
-        uint32 callbackGasLimit
+        uint32 callbackGasLimit,
+        address admin
     ) VRFConsumerBaseV2(vrfCoordinator) {
         i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinator);
         i_subscriptionId = subscriptionId;
         i_keyHash = keyHash;
         i_callbackGasLimit = callbackGasLimit;
+        i_admin = admin;
     }
 
-    function createRaffle(uint256 start, uint256 finish) external {
+    function createRaffle(uint256 start, uint256 finish) external OnlyAdmin {
         if (finish < start) revert CreateRaffle_FinishBeforeStart();
         raffleCollection.push(
             Raffle({
@@ -86,17 +97,18 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         if (hasParticipated[raffleId][participant])
             revert AddParticipant_AlreadyIn();
         raffleCollection[raffleId].participants.push(participant);
+        hasParticipated[raffleId][participant] = true;
         emit ParticipantAdded(participant);
     }
 
     //drawWinner ask for a random number to Chainlink. Is fulfillRandomWords who choses the winner
-    function drawWinner(uint256 raffleId) external {
-        Raffle memory raffle = raffleCollection[raffleId];
+    function drawWinner(uint256 raffleId) external OnlyAdmin {
+        if (raffleId >= raffleCollection.length)
+            revert DrawWinner_InvalidRaffleId();
+        Raffle storage raffle = raffleCollection[raffleId];
         if (raffle.finishingTime < block.timestamp)
             revert DrawWinner_NotFinishedYet();
         if (raffle.status != Status.OPEN) revert DrawWinner_RaffleNotOpen();
-        if (raffleId >= raffleCollection.length)
-            revert AddParticipant_InvalidRaffleId();
         if (raffle.participants.length <= 0)
             revert DrawWinner_NotEnoughParticipants();
 
@@ -105,9 +117,9 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         uint256 requestId = i_vrfCoordinator.requestRandomWords(
             i_keyHash,
             i_subscriptionId,
-            3,
+            CONFIRMATIONS,
             i_callbackGasLimit,
-            1
+            RANDOM_NUMBERS
         );
         requestIdToRaffle[requestId] = raffleId;
     }
