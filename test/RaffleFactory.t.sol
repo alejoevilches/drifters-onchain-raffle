@@ -33,4 +33,25 @@ contract RaffleFactoryTest is Test {
         vm.prank(admin);
         assertEq(raffleFactory.getAdmin(), admin);
     }
+
+    function testRaffleIsCreated() public {
+        vm.prank(admin);
+        raffleFactory.createRaffle(10000000, 10003400);
+        RaffleFactory.Raffle memory raffle = raffleFactory.getRaffle(0);
+        assertEq(raffle.startingTime, 10000000);
+        assertEq(raffle.finishingTime, 10003400);
+        assertEq(uint256(raffle.status), uint256(RaffleFactory.Status.OPEN));
+        assertEq(raffle.participants.length, 0);
+    }
+
+    function testCreateRaffleRevertsIfFinishTimeIsShortThanStart() public {
+        vm.prank(admin);
+        vm.expectRevert(RaffleFactory.CreateRaffle_FinishBeforeStart.selector);
+        raffleFactory.createRaffle(10003400, 10000000);
+    }
+
+    function testCreateRaffleRevertsIfCallerIsNotAdmin() public {
+        vm.expectRevert(RaffleFactory.NotAdmin.selector);
+        raffleFactory.createRaffle(10000000, 10003400);
+    }
 }
