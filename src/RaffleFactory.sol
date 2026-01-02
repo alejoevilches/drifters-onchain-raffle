@@ -33,6 +33,7 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     error AddParticipant_InvalidRaffleId();
     error DrawWinner_InvalidRaffleId();
     error DrawWinner_NotFinishedYet();
+    error FulfillRandomWords_RaffleNotInDrawStatus();
 
     modifier OnlyAdmin() {
         if (msg.sender != i_admin) revert NotAdmin();
@@ -91,6 +92,10 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         return raffleCollection[raffleId];
     }
 
+    function getAdmin() external view returns (address) {
+        return i_admin;
+    }
+
     function addParticipant(address participant, uint256 raffleId) external {
         if (raffleId >= raffleCollection.length)
             revert AddParticipant_InvalidRaffleId();
@@ -129,6 +134,8 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         uint256[] memory randomWords
     ) internal override {
         uint256 raffleId = requestIdToRaffle[requestId];
+        if (raffleCollection[raffleId].status != Status.DRAW)
+            revert FulfillRandomWords_RaffleNotInDrawStatus();
         uint256 winnerIndex = randomWords[0] %
             raffleCollection[raffleId].participants.length;
         raffleCollection[raffleId].winner = raffleCollection[raffleId]
