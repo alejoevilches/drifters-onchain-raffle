@@ -36,6 +36,8 @@ contract RaffleFactoryTest is Test {
 
     function testRaffleIsCreated() public {
         vm.prank(admin);
+        vm.expectEmit(false, false, false, true);
+        emit RaffleFactory.RaffleCreated(0);
         raffleFactory.createRaffle(10000000, 10003400);
         RaffleFactory.Raffle memory raffle = raffleFactory.getRaffle(0);
         assertEq(raffle.startingTime, 10000000);
@@ -53,5 +55,36 @@ contract RaffleFactoryTest is Test {
     function testCreateRaffleRevertsIfCallerIsNotAdmin() public {
         vm.expectRevert(RaffleFactory.NotAdmin.selector);
         raffleFactory.createRaffle(10000000, 10003400);
+    }
+
+    function testGetRaffleRevertsIfRaffleIdIsInvalid() public {
+        vm.expectRevert(RaffleFactory.GetRaffle_InvalidRaffleId.selector);
+        raffleFactory.getRaffle(912);
+    }
+
+    function testParticipantIsAdded() public {
+        address user = makeAddr("user");
+        vm.prank(admin);
+        raffleFactory.createRaffle(10000000, 10003400);
+        vm.expectEmit(true, true, false, false);
+        emit RaffleFactory.ParticipantAdded(user, 0);
+        raffleFactory.addParticipant(user, 0);
+        RaffleFactory.Raffle memory raffle = raffleFactory.getRaffle(0);
+        assertEq(raffle.participants.length, 1);
+    }
+
+    function testAddParticipantRevertsIfRaffleIdIsInvalid() public {
+        address user = makeAddr("user");
+        vm.expectRevert(RaffleFactory.AddParticipant_InvalidRaffleId.selector);
+        raffleFactory.addParticipant(user, 0);
+    }
+
+    function testAddParticipantRevertsIfParticipantIsAlreadyAdded() public {
+        address user = makeAddr("user");
+        vm.prank(admin);
+        raffleFactory.createRaffle(10000000, 10003400);
+        raffleFactory.addParticipant(user, 0);
+        vm.expectRevert(RaffleFactory.AddParticipant_AlreadyIn.selector);
+        raffleFactory.addParticipant(user, 0);
     }
 }

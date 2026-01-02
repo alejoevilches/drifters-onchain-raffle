@@ -54,9 +54,12 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         CLOSED
     }
 
-    event WinnerChosed(address winner, uint256 raffleId);
+    event WinnerChosen(address indexed winner, uint256 indexed raffleId);
     event RaffleCreated(uint256 raffleId);
-    event ParticipantAdded(address participant);
+    event ParticipantAdded(
+        address indexed participant,
+        uint256 indexed raffleId
+    );
 
     constructor(
         address vrfCoordinator,
@@ -103,7 +106,7 @@ contract RaffleFactory is VRFConsumerBaseV2 {
             revert AddParticipant_AlreadyIn();
         raffleCollection[raffleId].participants.push(participant);
         hasParticipated[raffleId][participant] = true;
-        emit ParticipantAdded(participant);
+        emit ParticipantAdded(participant, raffleId);
     }
 
     //drawWinner ask for a random number to Chainlink. Is fulfillRandomWords who choses the winner
@@ -141,6 +144,6 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         raffleCollection[raffleId].winner = raffleCollection[raffleId]
             .participants[winnerIndex];
         raffleCollection[raffleId].status = Status.CLOSED;
-        emit WinnerChosed(raffleCollection[raffleId].winner, raffleId);
+        emit WinnerChosen(raffleCollection[raffleId].winner, raffleId);
     }
 }
