@@ -45,6 +45,7 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         uint256 finishingTime;
         address winner;
         Status status;
+        string metadataURI;
     }
 
     enum Status {
@@ -74,7 +75,11 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         i_admin = admin;
     }
 
-    function createRaffle(uint256 start, uint256 finish) external OnlyAdmin {
+    function createRaffle(
+        uint256 start,
+        uint256 finish,
+        string calldata productInfo
+    ) external OnlyAdmin {
         if (finish < start) revert CreateRaffle_FinishBeforeStart();
         raffleCollection.push(
             Raffle({
@@ -82,7 +87,8 @@ contract RaffleFactory is VRFConsumerBaseV2 {
                 startingTime: start,
                 finishingTime: finish,
                 winner: address(0),
-                status: Status.OPEN
+                status: Status.OPEN,
+                metadataURI: productInfo
             })
         );
         emit RaffleCreated(raffleCollection.length - 1);

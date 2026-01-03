@@ -14,6 +14,7 @@ contract RaffleFactoryTest is Test {
     uint96 private constant GAS_PRICE = 1e9;
     uint32 private constant CALLBACK_GASLIMIT = 500000;
     uint64 private constant SUBSCRIPTION_ID = 1;
+    string constant METADATA_URI = "ipfs://test";
     VRFCoordinatorV2Mock vrfCoordinatorMock;
 
     function setUp() external {
@@ -40,7 +41,7 @@ contract RaffleFactoryTest is Test {
         vm.prank(admin);
         vm.expectEmit(false, false, false, true);
         emit RaffleFactory.RaffleCreated(0);
-        raffleFactory.createRaffle(10000000, 10003400);
+        raffleFactory.createRaffle(10000000, 10003400, METADATA_URI);
         RaffleFactory.Raffle memory raffle = raffleFactory.getRaffle(0);
         assertEq(raffle.startingTime, 10000000);
         assertEq(raffle.finishingTime, 10003400);
@@ -51,12 +52,12 @@ contract RaffleFactoryTest is Test {
     function testCreateRaffleRevertsIfFinishTimeIsShortThanStart() public {
         vm.prank(admin);
         vm.expectRevert(RaffleFactory.CreateRaffle_FinishBeforeStart.selector);
-        raffleFactory.createRaffle(10003400, 10000000);
+        raffleFactory.createRaffle(10003400, 10000000, METADATA_URI);
     }
 
     function testCreateRaffleRevertsIfCallerIsNotAdmin() public {
         vm.expectRevert(RaffleFactory.NotAdmin.selector);
-        raffleFactory.createRaffle(10000000, 10003400);
+        raffleFactory.createRaffle(10000000, 10003400, METADATA_URI);
     }
 
     function testGetRaffleRevertsIfRaffleIdIsInvalid() public {
@@ -67,7 +68,7 @@ contract RaffleFactoryTest is Test {
     function testParticipantIsAdded() public {
         address user = makeAddr("user");
         vm.prank(admin);
-        raffleFactory.createRaffle(10000000, 10003400);
+        raffleFactory.createRaffle(10000000, 10003400, METADATA_URI);
         vm.expectEmit(true, true, false, false);
         emit RaffleFactory.ParticipantAdded(user, 0);
         raffleFactory.addParticipant(user, 0);
@@ -84,7 +85,7 @@ contract RaffleFactoryTest is Test {
     function testAddParticipantRevertsIfParticipantIsAlreadyAdded() public {
         address user = makeAddr("user");
         vm.prank(admin);
-        raffleFactory.createRaffle(10000000, 10003400);
+        raffleFactory.createRaffle(10000000, 10003400, METADATA_URI);
         raffleFactory.addParticipant(user, 0);
         vm.expectRevert(RaffleFactory.AddParticipant_AlreadyIn.selector);
         raffleFactory.addParticipant(user, 0);
@@ -93,7 +94,7 @@ contract RaffleFactoryTest is Test {
     function testDrawWinnerRequestsRandomNumber() public {
         address user = makeAddr("user");
         vm.startPrank(admin);
-        raffleFactory.createRaffle(10000000, 10000001);
+        raffleFactory.createRaffle(10000000, 10000001, METADATA_URI);
         vm.warp(10000001 + 1);
         raffleFactory.addParticipant(user, 0);
         uint256 requestId = raffleFactory.drawWinner(0);
@@ -115,7 +116,7 @@ contract RaffleFactoryTest is Test {
         public
     {
         vm.startPrank(admin);
-        raffleFactory.createRaffle(10000000, 10000001);
+        raffleFactory.createRaffle(10000000, 10000001, METADATA_URI);
         vm.warp(10000001 + 1);
         vm.expectRevert(
             RaffleFactory.DrawWinner_NotEnoughParticipants.selector
@@ -127,7 +128,7 @@ contract RaffleFactoryTest is Test {
     function testDrawWinnerRevertsIfRaffleIsNotFinishedYet() public {
         address user = makeAddr("user");
         vm.startPrank(admin);
-        raffleFactory.createRaffle(10000000, 20000000);
+        raffleFactory.createRaffle(10000000, 20000000, METADATA_URI);
         raffleFactory.addParticipant(user, 0);
         vm.expectRevert(RaffleFactory.DrawWinner_NotFinishedYet.selector);
         raffleFactory.drawWinner(0);
@@ -136,7 +137,7 @@ contract RaffleFactoryTest is Test {
     function testDrawWinnerRevertsIfRaffleStatusIsNotOpen() public {
         address user = makeAddr("user");
         vm.startPrank(admin);
-        raffleFactory.createRaffle(10000000, 10000001);
+        raffleFactory.createRaffle(10000000, 10000001, METADATA_URI);
         vm.warp(10000001 + 1);
         raffleFactory.addParticipant(user, 0);
         raffleFactory.drawWinner(0);
@@ -155,7 +156,7 @@ contract RaffleFactoryTest is Test {
     function testFulfillRandomWordsSelectsWinner() public {
         address user = makeAddr("user");
         vm.startPrank(admin);
-        raffleFactory.createRaffle(10000000, 20000000);
+        raffleFactory.createRaffle(10000000, 20000000, METADATA_URI);
         raffleFactory.addParticipant(user, 0);
         vm.warp(20000000 + 1);
         uint256 requestId = raffleFactory.drawWinner(0);
