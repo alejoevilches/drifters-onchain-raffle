@@ -27,6 +27,10 @@ contract RaffleFactoryTest is Test {
             CALLBACK_GASLIMIT,
             admin
         );
+
+        uint64 subId = vrfCoordinatorMock.createSubscription();
+        vrfCoordinatorMock.fundSubscription(subId, 10 ether);
+        vrfCoordinatorMock.addConsumer(subId, address(raffleFactory));
     }
 
     function testConstructorSetsAdmin() public {
@@ -86,5 +90,67 @@ contract RaffleFactoryTest is Test {
         raffleFactory.addParticipant(user, 0);
         vm.expectRevert(RaffleFactory.AddParticipant_AlreadyIn.selector);
         raffleFactory.addParticipant(user, 0);
+    }
+
+    function testDrawWinnerRequestsRandomNumber() public {
+        address user = makeAddr("user");
+        vm.startPrank(admin);
+        raffleFactory.createRaffle(10000000, 10000001);
+        vm.warp(10000001 + 1);
+        raffleFactory.addParticipant(user, 0);
+        uint256 requestId = raffleFactory.drawWinner(0);
+        vm.stopPrank();
+        RaffleFactory.Raffle memory raffle = raffleFactory.getRaffle(0);
+        assertEq(uint256(raffle.status), uint256(RaffleFactory.Status.DRAW));
+        assertGt(requestId, 0);
+        assertEq(raffleFactory.requestIdToRaffle(requestId), 0);
+        assertEq(raffle.winner, address(0));
+    }
+
+    function testDrawWinnerRevertsIfRaffleIdIsInvalid() public {
+        vm.prank(admin);
+        vm.expectRevert(RaffleFactory.DrawWinner_InvalidRaffleId.selector);
+        raffleFactory.drawWinner(0);
+    }
+
+    function testDrawWinnerRevertsIfRaffleIsThereAreNotEnoughParticipants()
+        public
+    {
+        vm.startPrank(admin);
+        raffleFactory.createRaffle(10000000, 10000001);
+        vm.warp(10000001 + 1);
+        vm.expectRevert(
+            RaffleFactory.DrawWinner_NotEnoughParticipants.selector
+        );
+        raffleFactory.drawWinner(0);
+        vm.stopPrank();
+    }
+
+    function testDrawWinnerRevertsIfRaffleIsNotFinishedYet() public {
+        address user = makeAddr("user");
+        vm.startPrank(admin);
+        raffleFactory.createRaffle(10000000, 20000000);
+        raffleFactory.addParticipant(user, 0);
+        vm.expectRevert(RaffleFactory.DrawWinner_NotFinishedYet.selector);
+        raffleFactory.drawWinner(0);
+    }
+
+    function testDrawWinnerRevertsIfRaffleStatusIsNotOpen() public {
+        address user = makeAddr("user");
+        vm.startPrank(admin);
+        raffleFactory.createRaffle(10000000, 10000001);
+        vm.warp(10000001 + 1);
+        raffleFactory.addParticipant(user, 0);
+        raffleFactory.drawWinner(0);
+        vm.expectRevert(RaffleFactory.DrawWinner_RaffleNotOpen.selector);
+        raffleFactory.drawWinner(0);
+        vm.stopPrank();
+    }
+
+    function testDrawWinnerRevertsIfCalledByNotAdmin() public {
+        address user = makeAddr("user");
+        vm.prank(user);
+        vm.expectRevert(RaffleFactory.NotAdmin.selector);
+        raffleFactory.drawWinner(0);
     }
 }

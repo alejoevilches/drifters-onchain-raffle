@@ -21,7 +21,7 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     uint32 immutable i_callbackGasLimit;
     address immutable i_admin;
 
-    mapping(uint256 => uint256) requestIdToRaffle;
+    mapping(uint256 => uint256) public requestIdToRaffle;
     mapping(uint256 => mapping(address => bool)) hasParticipated;
 
     error NotAdmin();
@@ -110,11 +110,11 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     }
 
     //drawWinner ask for a random number to Chainlink. Is fulfillRandomWords who choses the winner
-    function drawWinner(uint256 raffleId) external OnlyAdmin {
+    function drawWinner(uint256 raffleId) external OnlyAdmin returns (uint256) {
         if (raffleId >= raffleCollection.length)
             revert DrawWinner_InvalidRaffleId();
         Raffle storage raffle = raffleCollection[raffleId];
-        if (raffle.finishingTime < block.timestamp)
+        if (block.timestamp < raffle.finishingTime)
             revert DrawWinner_NotFinishedYet();
         if (raffle.status != Status.OPEN) revert DrawWinner_RaffleNotOpen();
         if (raffle.participants.length <= 0)
@@ -130,6 +130,7 @@ contract RaffleFactory is VRFConsumerBaseV2 {
             RANDOM_NUMBERS
         );
         requestIdToRaffle[requestId] = raffleId;
+        return requestId;
     }
 
     function fulfillRandomWords(
