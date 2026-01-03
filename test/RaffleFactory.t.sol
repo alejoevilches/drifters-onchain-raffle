@@ -14,12 +14,10 @@ contract RaffleFactoryTest is Test {
     uint96 private constant GAS_PRICE = 1e9;
     uint32 private constant CALLBACK_GASLIMIT = 500000;
     uint64 private constant SUBSCRIPTION_ID = 1;
+    VRFCoordinatorV2Mock vrfCoordinatorMock;
 
     function setUp() external {
-        VRFCoordinatorV2Mock vrfCoordinatorMock = new VRFCoordinatorV2Mock(
-            BASE_FEE,
-            GAS_PRICE
-        );
+        vrfCoordinatorMock = new VRFCoordinatorV2Mock(BASE_FEE, GAS_PRICE);
         raffleFactory = new RaffleFactory(
             address(vrfCoordinatorMock),
             SUBSCRIPTION_ID,
@@ -152,5 +150,24 @@ contract RaffleFactoryTest is Test {
         vm.prank(user);
         vm.expectRevert(RaffleFactory.NotAdmin.selector);
         raffleFactory.drawWinner(0);
+    }
+
+    function testFulfillRandomWordsSelectsWinner() public {
+        address user = makeAddr("user");
+        vm.startPrank(admin);
+        raffleFactory.createRaffle(10000000, 20000000);
+        raffleFactory.addParticipant(user, 0);
+        vm.warp(20000000 + 1);
+        uint256 requestId = raffleFactory.drawWinner(0);
+        vm.stopPrank();
+        vm.expectEmit(true, true, false, false);
+        emit RaffleFactory.WinnerChosen(user, 0);
+        vrfCoordinatorMock.fulfillRandomWords(
+            requestId,
+            address(raffleFactory)
+        );
+        RaffleFactory.Raffle memory raffle = raffleFactory.getRaffle(0);
+        assertTrue(raffle.winner == user);
+        assertEq(uint256(raffle.status), uint256(RaffleFactory.Status.CLOSED));
     }
 }
