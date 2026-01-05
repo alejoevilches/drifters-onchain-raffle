@@ -100,6 +100,10 @@ contract RaffleFactory is VRFConsumerBaseV2 {
         return raffleCollection[raffleId];
     }
 
+    function getRaffleCollectionLength() external view returns (uint256) {
+        return raffleCollection.length;
+    }
+
     function getAdmin() external view returns (address) {
         return i_admin;
     }
