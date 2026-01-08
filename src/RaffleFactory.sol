@@ -40,6 +40,7 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     }
 
     struct Raffle {
+        uint256 id;
         address[] participants;
         uint256 startingTime;
         uint256 finishingTime;
