@@ -22,7 +22,7 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     address immutable i_admin;
 
     mapping(uint256 => uint256) public requestIdToRaffle;
-    mapping(uint256 => mapping(address => bool)) hasParticipated;
+    mapping(uint256 => mapping(address => bool)) public hasParticipated;
 
     error NotAdmin();
     error CreateRaffle_FinishBeforeStart();
@@ -40,7 +40,6 @@ contract RaffleFactory is VRFConsumerBaseV2 {
     }
 
     struct Raffle {
-        uint256 id;
         address[] participants;
         uint256 startingTime;
         uint256 finishingTime;
